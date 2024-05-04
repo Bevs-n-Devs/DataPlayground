@@ -21,36 +21,56 @@ def get_team_stats(team: TEAM)->dict:
     print("Team:",team.team_name)
     dropdown = webdriver.find_element(By.XPATH, "//*[@class='dropdown dropdown--md mr2 filters__seasonDropdown']")
     season_opts = dropdown.find_elements(By.TAG_NAME, "option")
-    season_opts = [s.text for s in season_opts]
-    # for s in season_opts: print("\t\t-", s)
-    tbls = webdriver.find_elements(By.XPATH, "//*[@class='ResponsiveTable ResponsiveTable--fixed-left mt5 remove_capitalize']")
-    data = {"players" : {}}
-    for tbl in tbls:
-        tmp = tbl.find_element(By.CLASS_NAME, "flex").find_elements(By.TAG_NAME, "th")
-        tmp = [h.text.strip() for h in tmp]
-        headers = tmp[1:]
-        tbodies = tbl.find_elements(By.TAG_NAME, "tbody")
-        name_body = tbodies[0]
-        stat_body = tbodies[1]
-        name_body_rows = name_body.find_elements(By.TAG_NAME, "tr")[:-1]
-        stat_body_rows = stat_body.find_elements(By.TAG_NAME, "tr")[:-1]
+    # season_opts = [s.text for s in season_opts]
+    season_opts = [opt.get_attribute("value").split("|") for opt in season_opts[:-1] ]
+    # season_opts = [a.split("|") + [b.split(" ")[-1]] for a,b in season_opts[:-1]]
+    data = {}
+    for a,b in season_opts:
+        # print(a, webdriver.current_url)
+        szn_url = webdriver.current_url.split("/")
+        if "season" in szn_url:
+            szn_url = "/".join(szn_url[:-4])
+        else:
+            szn_url = "/".join(szn_url[:-1])
 
-        rec = {}
-        for r in range(0,len(name_body_rows)):
-            name = name_body_rows[r].find_element(By.TAG_NAME, "a").text.strip()
-            if name not in data["players"].keys(): 
-                data["players"][name] = {}
-                pos = name_body_rows[r].find_element(By.CLASS_NAME, "font10").text.strip()
-                data["players"][name]["pos"] = pos
-                print("player:",name,", postition:",pos)
-            
-            rec = data["players"][name]
-            cols = stat_body_rows[r].find_elements(By.TAG_NAME, "td")
-            for c in range(0, len(cols)):
-                rec[headers[c]] = cols[c].text
-                # print("\t\t*", headers[c], cols[c].text)
-            # if len(rec.keys()) > len(cols):
-            #     print(json.dumps(rec,indent=2))
+        szn_url = szn_url + "/season/" + str(a) + "/seasontype/" + b 
+        print(szn_url)
+        webdriver.get(szn_url)
+        sleep(delay_time/2)
+
+        k = str(a)
+        if int(b) == 2: k+="_reg"
+        else: k+="pos"
+
+        data[k] = {"players" : {}}
+        tbls = webdriver.find_elements(By.XPATH, "//*[@class='ResponsiveTable ResponsiveTable--fixed-left mt5 remove_capitalize']")
+        plyr_data = data[k]
+        for tbl in tbls:
+            tmp = tbl.find_element(By.CLASS_NAME, "flex").find_elements(By.TAG_NAME, "th")
+            tmp = [h.text.strip() for h in tmp]
+            headers = tmp[1:]
+            tbodies = tbl.find_elements(By.TAG_NAME, "tbody")
+            name_body = tbodies[0]
+            stat_body = tbodies[1]
+            name_body_rows = name_body.find_elements(By.TAG_NAME, "tr")[:-1]
+            stat_body_rows = stat_body.find_elements(By.TAG_NAME, "tr")[:-1]
+
+            rec = {}
+            for r in range(0,len(name_body_rows)):
+                name = name_body_rows[r].find_element(By.TAG_NAME, "a").text.strip()
+                if name not in plyr_data["players"].keys(): 
+                    plyr_data["players"][name] = {}
+                    pos = name_body_rows[r].find_element(By.CLASS_NAME, "font10").text.strip()
+                    plyr_data["players"][name]["pos"] = pos
+                    print("player:",name,", postition:",pos)
+                
+                rec = plyr_data["players"][name]
+                cols = stat_body_rows[r].find_elements(By.TAG_NAME, "td")
+                for c in range(0, len(cols)):
+                    rec[headers[c]] = cols[c].text
+                    # print("\t\t*", headers[c], cols[c].text)
+                # if len(rec.keys()) > len(cols):
+                #     print(json.dumps(rec,indent=2))
     
     data["conference"] = team.team_conf
     return data

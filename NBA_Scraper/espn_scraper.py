@@ -1,3 +1,4 @@
+import json
 from NBA_Scraper import *
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -7,24 +8,52 @@ from selenium.webdriver.common.keys import Keys
 from time import sleep
 
 
-def get_team_stats(team: TEAM)->None:
+def get_team_stats(team: TEAM)->dict:
     """
     Collects an NBA team stat history for Post & Pre Season
 
-    @param conf: team conference
-    @type conf: str
-    @param team: team name
-    @type team: str
-    @param url: team stats url
-    @type url: str
+    @param conf: team to collect data for
+    @type conf: Team
     """
     global webdriver
     webdriver.get(team.stats_url)
     sleep(delay_time)
+    print("Team:",team.team_name)
     dropdown = webdriver.find_element(By.XPATH, "//*[@class='dropdown dropdown--md mr2 filters__seasonDropdown']")
     season_opts = dropdown.find_elements(By.TAG_NAME, "option")
     season_opts = [s.text for s in season_opts]
-    for s in season_opts: print("\t\t-", s)
+    # for s in season_opts: print("\t\t-", s)
+    tbls = webdriver.find_elements(By.XPATH, "//*[@class='ResponsiveTable ResponsiveTable--fixed-left mt5 remove_capitalize']")
+    data = {"players" : {}}
+    for tbl in tbls:
+        tmp = tbl.find_element(By.CLASS_NAME, "flex").find_elements(By.TAG_NAME, "th")
+        tmp = [h.text.strip() for h in tmp]
+        headers = tmp[1:]
+        tbodies = tbl.find_elements(By.TAG_NAME, "tbody")
+        name_body = tbodies[0]
+        stat_body = tbodies[1]
+        name_body_rows = name_body.find_elements(By.TAG_NAME, "tr")[:-1]
+        stat_body_rows = stat_body.find_elements(By.TAG_NAME, "tr")[:-1]
+
+        rec = {}
+        for r in range(0,len(name_body_rows)):
+            name = name_body_rows[r].find_element(By.TAG_NAME, "a").text.strip()
+            if name not in data["players"].keys(): 
+                data["players"][name] = {}
+                pos = name_body_rows[r].find_element(By.CLASS_NAME, "font10").text.strip()
+                data["players"][name]["pos"] = pos
+                print("player:",name,", postition:",pos)
+            
+            rec = data["players"][name]
+            cols = stat_body_rows[r].find_elements(By.TAG_NAME, "td")
+            for c in range(0, len(cols)):
+                rec[headers[c]] = cols[c].text
+                # print("\t\t*", headers[c], cols[c].text)
+            # if len(rec.keys()) > len(cols):
+            #     print(json.dumps(rec,indent=2))
+    
+    data["conference"] = team.team_conf
+    return data
 
 # Specify browser options
 options = Options()
@@ -69,9 +98,12 @@ for el in conferences:
         print("\t-", team_name, team_stat_url)
         teams.append(TEAM(conf=conf,team=team_name,url=team_stat_url))
 
-
+data = {}
 for t in teams:
-    get_team_stats(team=t)
+    data[t.team_name] = get_team_stats(team=t)
+
+with open('data.json', 'w') as f:
+    json.dump(data, f, indent=4)
 
 # Close the browser session
 webdriver.close()

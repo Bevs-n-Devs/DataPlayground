@@ -130,17 +130,18 @@ for el in conferences:
 
 data = {}
 df_data = []
-#Cleaning data for easy export to multiple formats
+#Cleaning data for easy export to csv & excel formats
 for t in teams:
     data[t.team_name] = get_team_stats(team=t)
     for szn in data[t.team_name]:
         if (szn != "conference"):
             for ply in data[t.team_name][szn]["players"]:
                 tmp = data[t.team_name][szn]["players"][ply]
-                tmp["team"] = t.team_name
                 tmp["conference"] = t.team_conf
-                tmp["url"] = t.stats_url
                 tmp["player"] = ply
+                tmp['season'] = szn
+                tmp["team"] = t.team_name
+                tmp["url"] = t.stats_url
                 # print(tmp)
                 df_data.append(tmp)
 
@@ -148,10 +149,10 @@ for t in teams:
 webdriver.close()
 
 df = pd.DataFrame(df_data)
-df.to_json("nba_stats.json", index=False)
 df.to_csv("nba_stats.csv", index=False)
 if df.shape[0] > 1048570: df.to_excel("nba_stats.xlsx", index=False)
 
-# json_filename = 'nba_stats.json'
-# with open(json_filename, 'w') as f:
-#     json.dump(data, f, indent=4)
+# dump to json
+json_filename = 'nba_stats.json'
+with open(json_filename, 'w') as f:
+    json.dump(data, f, indent=4)

@@ -1,4 +1,7 @@
 import json
+import openpyxl
+import os
+import pandas as pd
 from NBA_Scraper import *
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -71,7 +74,7 @@ def get_team_stats(team: TEAM)->dict:
                     # print("\t\t*", headers[c], cols[c].text)
                 # if len(rec.keys()) > len(cols):
                 #     print(json.dumps(rec,indent=2))
-    
+                
     data["conference"] = team.team_conf
     return data
 
@@ -104,12 +107,19 @@ sleep(delay_time/2)
 
 teams = []
 conferences = webdriver.find_elements(By.CLASS_NAME, "mt7")
+
+# if the click does not work, we will pull the exact link
+if not len(conferences):
+    webdriver.get(base_url+"nba/teams")
+    sleep(delay_time/2)
+    conferences = webdriver.find_elements(By.CLASS_NAME, "mt7")
+
 for el in conferences:
     divs = el.find_elements(By.TAG_NAME, "div")
     conf = divs[0].text
     print("-", conf)
     elBlock = divs[1]
-    # print(elBlock.text)
+    print(elBlock.text)
     for t in elBlock.find_elements(By.CLASS_NAME, "pl3"):
         team_name = t.find_element(By.CLASS_NAME, "AnchorLink").text
         sec = t.find_element(By.CLASS_NAME, "TeamLinks__Links")
@@ -119,11 +129,29 @@ for el in conferences:
         teams.append(TEAM(conf=conf,team=team_name,url=team_stat_url))
 
 data = {}
+df_data = []
+#Cleaning data for easy export to multiple formats
 for t in teams:
     data[t.team_name] = get_team_stats(team=t)
-
-with open('data.json', 'w') as f:
-    json.dump(data, f, indent=4)
+    for szn in data[t.team_name]:
+        if (szn != "conference"):
+            for ply in data[t.team_name][szn]["players"]:
+                tmp = data[t.team_name][szn]["players"][ply]
+                tmp["team"] = t.team_name
+                tmp["conference"] = t.team_conf
+                tmp["url"] = t.stats_url
+                tmp["player"] = ply
+                # print(tmp)
+                df_data.append(tmp)
 
 # Close the browser session
 webdriver.close()
+
+df = pd.DataFrame(df_data)
+df.to_json("nba_stats.json", index=False)
+df.to_csv("nba_stats.csv", index=False)
+if df.shape[0] > 1048570: df.to_excel("nba_stats.xlsx", index=False)
+
+# json_filename = 'nba_stats.json'
+# with open(json_filename, 'w') as f:
+#     json.dump(data, f, indent=4)
